@@ -5,4 +5,5 @@ CPP_Experimental/.vs/*
 CPP_Experimental/CPP_Experimental/Debug/*
 
 
-CPP_Experimental/Debug/*
+CPP_Experimental/x64/*
+CPP_Experimental/CPP_Experimental/x64/*
