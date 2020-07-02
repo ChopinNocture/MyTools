@@ -6,8 +6,11 @@ import argparse
 def download_from(url, dir):
     # url = 'https://www.youtube.com/watch?v=8M7yBjtx_Ic'
     youtube = pytube.YouTube(url)
-    video = youtube.streams.first()
-    video.download(dir)
+    video = youtube.streams.order_by('resolution')[-1] # get_highest_resolution()
+    audio = youtube.streams.filter(only_audio=True).order_by("abr")[-1]
+    print(video, audio)
+    # video.download(dir)
+    audio.download(dir)
 
 
 def add_arguments(parser):
