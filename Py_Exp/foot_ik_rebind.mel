@@ -1,0 +1,90 @@
+string $basicFilter = "*.*";
+
+string $source_folder_url = "";
+string $target_folder_url = "";
+string $folder[];
+string $dialog_res = "Shit";
+
+
+$dialog_res = `confirmDialog -title "Fix Animation" -message "Choose the Source animation folder"
+	-button "OK" -button "Cancel" -defaultButton "OK"
+	-cancelButton "Cancel" -dismissString "Cancel"`;
+
+if ($dialog_res == "OK") {
+    $folder = `fileDialog2 -ff $basicFilter -fileMode 2 -dialogStyle 1`;
+    print($folder);
+
+    if (size($folder)>0) {
+        $source_folder_url = $folder[0];
+
+        $dialog_res = `confirmDialog -title "Export Animation" -message "Choose export target folder"
+            -button "OK" -button "Cancel" -defaultButton "OK"
+            -cancelButton "Cancel" -dismissString "Cancel"`;
+        if ($dialog_res == "OK") {
+            $folder = `fileDialog2 -ff $basicFilter -fileMode 2 -dialogStyle 1`;
+            if (size($folder)>0) {
+                $target_folder_url = $folder[0];
+                print($folder);
+                print("     "+ $target_folder_url);
+
+                string $fbx_files[] = `getFileList -folder $source_folder_url -filespec "*.fbx"`;
+                for ($file in $fbx_files) {
+                    $name = $source_folder_url+"/"+$file;
+                    print($name);
+
+                    file -f -new;                    
+                    file -import -type "FBX" -ignoreVersion -ra true -mergeNamespacesOnClash 
+                        false -options "fbx" -pr  -importFrameRate true  
+                        -importTimeRange "override" $name;
+
+                    select -r foot_l ;
+                    select -tgl ik_foot_l ;
+                    doCreateParentConstraintArgList 1 { "0","0","0","0","0","0","0","0","1","","1" };
+                    parentConstraint -weight 1;
+                    select -r foot_r ;
+                    select -tgl ik_foot_r ;
+                    doCreateParentConstraintArgList 1 { "0","0","0","0","0","0","0","0","1","","1" };
+                    parentConstraint -weight 1;
+                    select -r ik_foot_l ;
+                    select -add ik_foot_r ;
+                    BakeSimulation;
+
+                    select -r root;
+                    $name = $target_folder_url+"/"+$file;
+                    print("------ " + $name);
+                    file -force -options "v=0;" -typ "FBX export" 
+                        -pr -es $name;
+                }
+                confirmDialog -title "Congratulations" -message "Yeah!!!!!"
+                    -button "OK" -defaultButton "OK" -dismissString "Cancel";
+            }
+        }
+    }    
+}
+
+
+// file -f -new;
+// for ($file in $fbx_files) {
+//     print($file);
+// }
+
+// file -import -type "FBX" -ignoreVersion -ra true -mergeNamespacesOnClash false -options "fbx" -pr  -importFrameRate true  -importTimeRange "override" "D:/Temp/Animations/RoxHero_CRF_Walk_L_PreviewMesh.fbx";
+
+// select -r ik_foot_r ;
+// select -tgl ik_foot_l ;
+
+// select -r foot_l ;
+// select -tgl ik_foot_l ;
+// doCreateParentConstraintArgList 1 { "0","0","0","0","0","0","0","0","1","","1" };
+// parentConstraint -weight 1;
+// select -r foot_r ;
+// select -tgl ik_foot_r ;
+// doCreateParentConstraintArgList 1 { "0","0","0","0","0","0","0","0","1","","1" };
+// parentConstraint -weight 1;
+// select -r ik_foot_l ;
+// select -add ik_foot_r ;
+// BakeSimulation;
+
+// select -r root;
+// file -force -options "v=0;" -typ "FBX export" -pr -es "D:/Temp/Exped/aaa.fbx";
+// file -f -new;

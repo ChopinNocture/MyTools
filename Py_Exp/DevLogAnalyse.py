@@ -7,9 +7,9 @@ RE_BODY_PREFIX = re.compile(
 # log category congfig: will become json string from client
 LOG_CATEGORIES = [
     {
-        "cat": "platform",
-        "menu": "平台",
-        "keys": ["LogTargetPlatformManager:"]
+        "cat": "other",
+        "menu": "其它",
+        "keys": ["LogTargetPlatformManager:", "LogSavePackage:"]
     },
     {
         "cat": "asset",
@@ -19,7 +19,7 @@ LOG_CATEGORIES = [
     {
         "cat": "blueprint",
         "menu": "蓝图",
-        "keys": ["LogBlueprint:", "LogEnum:"]
+        "keys": ["LogBlueprint:", "LogEnum:", "LogLinker:"]
     },
     {
         "cat": "material",
@@ -66,6 +66,7 @@ def analyse_UE4logline(line, ana_obj):
 
 def analyse_teamcity_buildlog(log_text):
     lines = log_text.splitlines()
+    lines = list(set(lines))
 
     state = 0
     log_obj = {'head': {"text": ""}, 'body': [], 'foot': {"text": ""}}
@@ -98,15 +99,16 @@ def analyse_teamcity_buildlog(log_text):
     return log_obj
 
 
-# testlog_path = "D:/Users/feng.yan/Documents/testlog.txt"
-# with open(testlog_path, 'r', encoding='utf-8') as file:
-#     text = file.read()
 
-# analyse_teamcity_buildlog(text)
+testlog_path = "D:/Users/feng.yan/Documents/testlog.txt"
+with open(testlog_path, 'r', encoding='utf-8') as file:
+    text = file.read()
+
+analyse_teamcity_buildlog(text)
 
 #result = RE_UE4_PATH_OR_CLASS.findall("[16:01:31] :	 [Step 1/1]   LogMaterial: Warning: D:\TeamCity\buildAgent\work\86314017ea15d70\Project_Rox\Rox_Demo_0\Content\Environment\DungePart_A\Material\Master\MM_Rooftops_Concrete.uasset: Failed to compile Material for platform PCD3D_SM5, Default Material will be used in game.")
-result = RE_UE4_PATH_OR_CLASS.findall("[16:03:53] :	 [Step 1/1]   LogUObjectGlobals: Warning: 加载“D:/TeamCity/buildAgent/work/86314017ea15d70/Project_Rox/Rox_Demo_0/Content/Blueprints/NPC/AI/EQSQuery/TargetInRange.uasset”时未能加载“/Script/EnvironmentQueryEditor”：无法找到文件。")
-print(result)
+#result = RE_UE4_PATH_OR_CLASS.findall("[16:03:53] :	 [Step 1/1]   LogUObjectGlobals: Warning: 加载“D:/TeamCity/buildAgent/work/86314017ea15d70/Project_Rox/Rox_Demo_0/Content/Blueprints/NPC/AI/EQSQuery/TargetInRange.uasset”时未能加载“/Script/EnvironmentQueryEditor”：无法找到文件。")
+#print(result)
 
 # lines = text.splitlines()
 # df = pd.DataFrame(lines)
