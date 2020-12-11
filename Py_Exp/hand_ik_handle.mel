@@ -1,0 +1,79 @@
+//---------------------------
+// $fbxFile = `fileDialog2 -ff "*.fbx" -fileMode 0 -dialogStyle 1`;
+// print($fbxFile);
+
+//============================================================================
+// 用对好位置的FBX文件获取相对位置信息
+// close relation
+inheritTransform -off -preserve hand_r;
+inheritTransform -off -preserve ik_hand_gun;
+
+$handLoc = getAttr("hand_r.translate");
+$ikLoc = getAttr("ik_hand_gun.translate");
+$handRot = getAttr("hand_r.rotate");
+$ikRot = getAttr("ik_hand_gun.rotate");
+float $offLoc[3], $offRot[3];
+
+
+for ($idx=0; $idx<3; $idx++) {
+    $offLoc[$idx] = $ikLoc[$idx] - $handLoc[$idx];
+    $offRot[$idx] = $ikRot[$idx] - $handRot[$idx];
+}
+print($offLoc);
+print($offRot);
+
+// open relation
+inheritTransform -on -preserve hand_r;
+inheritTransform -on -preserve ik_hand_gun;
+//============================================================================
+
+// 清空场景
+// 拖入要修改的FBX
+
+
+//============================================================================
+// 重设IK结点位置
+// close relation
+inheritTransform -off -preserve hand_r;
+inheritTransform -off -preserve ik_hand_gun;
+
+$handLoc = getAttr("hand_r.translate");
+$handRot = getAttr("hand_r.rotate");
+
+for ($idx=0; $idx<3; $idx++) {
+    $ikLoc[$idx] = $offLoc[$idx] + $handLoc[$idx];
+    $ikRot[$idx] = $offRot[$idx] + $handRot[$idx];
+}
+
+setAttr("ik_hand_gun.translate", $ikLoc[0], $ikLoc[1], $ikLoc[2]);
+setAttr("ik_hand_gun.rotate", $ikRot[0], $ikRot[1], $ikRot[2]);
+
+// open relation
+inheritTransform -on -preserve hand_r;
+inheritTransform -on -preserve ik_hand_gun;
+//---------------------------------
+// 关联手 和 IK结点
+select -r hand_r ;
+select -tgl ik_hand_gun ;
+doCreateParentConstraintArgList 1 { "1","0","0","0","0","0","0","0","1","","1" };
+parentConstraint -mo -weight 1;
+
+select -r hand_l ;
+select -add ik_hand_l ;
+doCreateParentConstraintArgList 1 { "0","0","0","0","0","0","0","0","1","","1" };
+parentConstraint -weight 1;
+
+select -r hand_r ;
+select -add ik_hand_r ;
+doCreateParentConstraintArgList 1 { "0","0","0","0","0","0","0","0","1","","1" };
+parentConstraint -weight 1;
+//============================================================================
+
+
+
+//============================================================================
+// bake 动画
+select -r ik_hand_gun ;
+select -add ik_hand_r ;
+select -add ik_hand_l ;
+BakeSimulation;
