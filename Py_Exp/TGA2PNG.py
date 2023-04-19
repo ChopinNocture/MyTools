@@ -37,14 +37,16 @@ if __name__ == '__main__':
         if sts[1].lower() == "tga":
             pureName = sts[0]
             img = Image.open(fullName)
+            #imgResized = img.resize((512, 512)).reduce(512)
             rgba = img.convert("RGBA")
-            datas = rgba.getdata()
+            # datas = rgba.getdata()
+            # rgba.putdata(datas)
+
+            # newData = []
+            # for item in datas:
+            #     newData.append(item)
             
-            newData = []
-            for item in datas:
-                newData.append(item)
-            
-            rgba.putdata(newData)
+            # rgba.putdata(newData)
 
             destfile = os.path.join(destPath, pureName + ".png")
             rgba.save(destfile, "PNG")
