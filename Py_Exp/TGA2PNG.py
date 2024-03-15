@@ -4,7 +4,9 @@ from PIL import Image
 import numpy as np
 import imageio
 
-
+########################################################################
+# python "D:\Development\MyTools\Py_Exp\TGA2PNG.py" -file="" -dir=""
+#
 
 def add_arguments(parser):
     parser.add_argument(
