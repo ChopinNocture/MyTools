@@ -1,7 +1,7 @@
 import qrcode
 
 # URL to be encoded
-url = "https://baidu.com"
+url = "http://footballgame.w1.luyouxia.net/UESite/sharescore/"
 
 # Create QR code
 qr = qrcode.QRCode(
@@ -17,5 +17,5 @@ qr.make(fit=True)
 img = qr.make_image(fill_color="black", back_color="white")
 
 # Save the image
-file_path = "E:/DevDocumnets/足球互动/qrcode.png"
+file_path = "E:/DevDocumnets/足球互动/qrcode_score.png"
 img.save(file_path)

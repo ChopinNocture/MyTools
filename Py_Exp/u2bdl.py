@@ -4,8 +4,9 @@ import argparse
 
 
 def download_from(url, dir):
-    # url = 'https://www.youtube.com/watch?v=8M7yBjtx_Ic'
+    #url = 'https://www.youtube.com/watch?v=F-fKsnUtnd4'
     youtube = pytube.YouTube(url)
+    print(youtube.streams.get_highest_resolution())
     video = youtube.streams.order_by('resolution')[-1] # get_highest_resolution()
     audio = youtube.streams.filter(only_audio=True).order_by("abr")[-1]
     print(video, audio)
