@@ -24,7 +24,7 @@ def skip_ad():
         pass
         print(f"未找到按钮或出现错误: {e}")
     finally:
-        print(ret)
+        # print(ret)
         return ret
 # 自动循环检测
 while skip_ad():    
