@@ -103,9 +103,9 @@ def pack_normals_into_vertex_color(mesh):
     for i, color in enumerate(color_layer):
         if i < len(normals):
             normal = normals[i]
-            normal *= (1.0, -1.0, 1.0)
+            normal *= (-1.0, -1.0, 1.0)
             normal = (normal + 1.0) * 0.5
-            normal *= 255.0
+            #normal *= 255.0
             # 将法线转换为0到1的范围，Blender的法线范围是[-1, 1]，需要将其转换
             color.color = normal # [(normal.x + 1) * 0.5, (normal.y + 1) * 0.5, (normal.z + 1) * 0.5]
 
@@ -123,15 +123,14 @@ def pack_shape_vertex_offset_to_uv(base_shape, morph_shape, obj, is_target1=True
     length = len(base_verts)
     # 遍历所有顶点，计算 Basis 和目标形状键的差值
     for vert_index in range(0, length):
-        # 获取顶点坐标
-        basis_pos = base_verts[vert_index].co
-        
         #---------------------------
-        # 计算偏移量
+        # 获取顶点坐标 计算偏移量
+        basis_pos = base_verts[vert_index].co
         target_pos = morph_verts[vert_index].co
-        offset = (target_pos - basis_pos)  # 差值
+
+        offset_normalized = (target_pos - basis_pos)  # 差值
         # 压缩到 [0,1] 范围        
-        offset_normalized = (offset + mathutils.Vector((1.0, 1.0, 1.0))) * 0.5  # [-1,1] -> [0,1]
+        # offset_normalized = (offset + mathutils.Vector((1.0, 1.0, 1.0))) * 0.5  # [-1,1] -> [0,1]
         offset_list.append(offset_normalized)
 
     if is_target1:
@@ -141,11 +140,13 @@ def pack_shape_vertex_offset_to_uv(base_shape, morph_shape, obj, is_target1=True
             
             obj.data.uv_layers.active = obj.data.uv_layers[2]
             uv_layer = obj.data.uv_layers.active.data
-            uv_layer[loop.index].uv.y = (1-offset_normalized.x) * 255.0
+            uv_layer[loop.index].uv.y = (1-offset_normalized.x)
+            # uv_layer[loop.index].uv.y = offset_normalized.x
 
             obj.data.uv_layers.active = obj.data.uv_layers[3]
             uv_layer = obj.data.uv_layers.active.data
-            uv_layer[loop.index].uv = (-255.0 * offset_normalized.y, 255 * (1-offset_normalized.z))
+            uv_layer[loop.index].uv = (-offset_normalized.y, (1-offset_normalized.z))
+            # uv_layer[loop.index].uv = offset_normalized.y, offset_normalized.z
     else:
         # shape2存储到 UV 通道1,2u
         for loop in obj.data.loops :
@@ -153,11 +154,13 @@ def pack_shape_vertex_offset_to_uv(base_shape, morph_shape, obj, is_target1=True
             
             obj.data.uv_layers.active = obj.data.uv_layers[1]
             uv_layer = obj.data.uv_layers.active.data
-            uv_layer[loop.index].uv = (255.0 * offset_normalized.x, 255.0 * (1 + offset_normalized.y))
+            uv_layer[loop.index].uv = (offset_normalized.x, (1 + offset_normalized.y))
+            # uv_layer[loop.index].uv = offset_normalized.x, offset_normalized.y
 
             obj.data.uv_layers.active = obj.data.uv_layers[2]
             uv_layer = obj.data.uv_layers.active.data
-            uv_layer[loop.index].uv.x = 255 * offset_normalized.z
+            # uv_layer[loop.index].uv.x = 255 * offset_normalized.z
+            uv_layer[loop.index].uv.x = offset_normalized.z
 
 
     # 更新视图
