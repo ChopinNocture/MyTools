@@ -228,11 +228,12 @@ def write_shape_vertex_UV():
     # 将每个顶点的像素位置映射到 UV 层
     for loop in obj.data.loops :
         i = loop.vertex_index
-        pixel_x = (i % size) / size  # 将顶点索引映射到图像的宽度范围 [0, 1]
-        pixel_y = (i // size) / size  # 将顶点索引映射到图像的高度范围 [0, 1]
+        pixel_x = ((i % size) + 0.5) / size  # 将顶点索引映射到图像的宽度范围 [0, 1]
+        pixel_y = ((i // size) + 0.5) / size  # 将顶点索引映射到图像的高度范围 [0, 1]
         uv_layer[loop.index].uv = (pixel_x, pixel_y)
 
 
+IMAGE_NAME = "Image_Shape_Keys"
 @check_mesh_selected
 def write_shape_into_image(base_shape, morph_shape, file_path):
     offset_list = get_morph_vertex_offsets(base_shape, morph_shape)
@@ -247,21 +248,28 @@ def write_shape_into_image(base_shape, morph_shape, file_path):
         offset = offset_list[i]
         
         if pixel_index < len(pixels):
-            pixels[pixel_index] = offset.x
+            pixels[pixel_index] = offset.z
             pixels[pixel_index + 1] = -offset.y
-            pixels[pixel_index + 2] = offset.z
+            pixels[pixel_index + 2] = offset.x
             pixels[pixel_index + 3] = 1.0
-    # image = bpy.data.images.new("Shape_Keys", width=size, height=size)
+    # image = bpy.data.images.new(IMAGE_NAME, width=size, height=size)
     # Save the image using PIL
     # img = Image.fromarray(pixels, "RGB")
     # img.save(file_path)
 
 # Save the image
-    image = bpy.data.images.new("Shape_Keys", width=size, height=size)
+    image = bpy.data.images.get(IMAGE_NAME)
+    if image:
+        # 强制清除引用
+        image.user_clear()
+        bpy.data.images.remove(image)
+    
+    image = bpy.data.images.new(IMAGE_NAME, width=size, height=size, alpha=False, float_buffer=True, is_data=True)
+
     image.pixels = pixels
 
     image.filepath_raw = bpy.path.abspath(f"//{file_path}")
-    image.file_format = 'PNG'
+    image.file_format = 'OPEN_EXR' # 'BMP'
     image.save()
 
 #=======================================================
@@ -385,8 +393,8 @@ class OpActiveShape2Image(bpy.types.Operator, ExportHelper):
     bl_idname = "object.active_shape_to_image"
     bl_label = "Write Selected Shape into Picture"
     
-    filename_ext = ".png"
-    filter_glob: bpy.props.StringProperty(default="*.png", options={'HIDDEN'})
+    filename_ext = ".exr"
+    filter_glob: bpy.props.StringProperty(default="*.exr", options={'HIDDEN'})
 
     def execute(self, context):
         obj = bpy.context.view_layer.objects.active
