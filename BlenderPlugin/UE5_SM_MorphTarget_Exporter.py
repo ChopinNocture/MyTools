@@ -213,7 +213,25 @@ def pack_shape_vertex_offset_to_uv(base_shape, morph_shape, obj, is_target1=True
 
 #================================================
 # 图片方案
+
 UV_LAY_NAME = "UV_ShapeKeys"
+
+# Save the image
+def save_exr_image(pixels, size, file_path):
+    image = bpy.data.images.get(IMAGE_NAME)
+    if image:
+        # 强制清除引用
+        image.user_clear()
+        bpy.data.images.remove(image)
+    
+    image = bpy.data.images.new(IMAGE_NAME, width=size, height=size, alpha=False, float_buffer=True, is_data=True)
+
+    image.pixels = pixels
+
+    image.filepath_raw = bpy.path.abspath(f"//{file_path}")
+    image.file_format = 'OPEN_EXR' # 'BMP'
+    image.save()
+
 
 @ensure_OP_mode(mode='OBJECT')
 @check_UV_layer_exist(UV_LAY_NAME)
@@ -248,29 +266,46 @@ def write_shape_into_image(base_shape, morph_shape, file_path):
         offset = offset_list[i]
         
         if pixel_index < len(pixels):
-            pixels[pixel_index] = offset.z
+            pixels[pixel_index] = offset.x
             pixels[pixel_index + 1] = -offset.y
-            pixels[pixel_index + 2] = offset.x
+            pixels[pixel_index + 2] = offset.z
             pixels[pixel_index + 3] = 1.0
     # image = bpy.data.images.new(IMAGE_NAME, width=size, height=size)
     # Save the image using PIL
     # img = Image.fromarray(pixels, "RGB")
     # img.save(file_path)
-
-# Save the image
-    image = bpy.data.images.get(IMAGE_NAME)
-    if image:
-        # 强制清除引用
-        image.user_clear()
-        bpy.data.images.remove(image)
     
-    image = bpy.data.images.new(IMAGE_NAME, width=size, height=size, alpha=False, float_buffer=True, is_data=True)
+    save_exr_image(pixels, size, file_path)
 
-    image.pixels = pixels
 
-    image.filepath_raw = bpy.path.abspath(f"//{file_path}")
-    image.file_format = 'OPEN_EXR' # 'BMP'
-    image.save()
+@check_mesh_selected
+def write_all_shape_into_image(base_shape, shape_list, number_of_verts, file_path):
+    num_shape = len(shape_list)
+    row_num = math.ceil(math.sqrt(num_shape))
+    size = int(nearest_pow2_image_res(number_of_verts))
+    size_all = size * row_num
+    if size_all >= 8192:
+        raise RuntimeError("Max image size can not larger than 8192.")
+    
+    pixels = [0.0] * (size_all * size_all * 4)  # 纹理图像的像素（RGBA）
+
+    for iter in range(len(shape_list)):
+        morph_shape = shape_list[iter]
+        offset_list = get_morph_vertex_offsets(base_shape, morph_shape)
+        col_idx = (iter % row_num) * size
+        row_idx = (iter // row_num)
+        for i in range(0, number_of_verts):
+            pixel_index = ((row_idx + (i//size)) * size_all + col_idx + (i%size)) * 4
+            offset = offset_list[i]            
+            if pixel_index < len(pixels):
+                pixels[pixel_index] = offset.x
+                pixels[pixel_index + 1] = -offset.y
+                pixels[pixel_index + 2] = offset.z
+                pixels[pixel_index + 3] = 1.0
+                
+    print(f"size = {size}   number_of_verts = {number_of_verts}")
+    
+    save_exr_image(pixels, size_all, file_path)
 
 #=======================================================
 # 创建面板界面
@@ -300,6 +335,9 @@ class MorphTargetPanel(bpy.types.Panel):
 
         row = col.row(align=True)
         row.operator(OpActiveShape2Image.bl_idname, text="当前Shape写入图片")
+
+        row = col.row(align=True)
+        row.operator(OpAllShape2Image.bl_idname, text="把所有Shape写入图片")
 
 
 # 操作：选择形态目标1
@@ -419,7 +457,42 @@ class OpActiveShape2Image(bpy.types.Operator, ExportHelper):
         #write_shape_vertex_UV()
         return {'FINISHED'}
     
+
+class OpAllShape2Image(bpy.types.Operator, ExportHelper):
+    bl_idname = "object.all_shape_to_image"
+    bl_label = "Write All Shapes into Picture"
     
+    filename_ext = ".exr"
+    filter_glob: bpy.props.StringProperty(default="*.exr", options={'HIDDEN'})
+
+    def execute(self, context):
+        obj = bpy.context.view_layer.objects.active
+        if not obj:
+            return {'CANCELLED'}
+        
+        shape_keys = obj.data.shape_keys
+
+        if not shape_keys:
+            print("对象没有形态键！")
+            return {'CANCELLED'}
+        if len(shape_keys.key_blocks) <=1: 
+            print("没有形态！！")
+            return {'CANCELLED'}
+        
+        number_of_verts = len(obj.data.vertices)
+        
+        base_shape = shape_keys.reference_key
+
+        # shape_list = [key.name for key in shape_keys if key.name != 'Basis']
+        shape_list = []
+        for i in range(1, len(shape_keys.key_blocks)):
+            shape_list.append(shape_keys.key_blocks[i])
+        write_all_shape_into_image(base_shape, shape_list, number_of_verts, self.filepath)
+
+        return {'FINISHED'}
+
+    
+
 # class ZepetoSwingBone(bpy.types.Operator):
 #     bl_idname = "zepeto.add_swing_bone"
 #     bl_label = "Add Zepeto Swing Bone"
@@ -475,6 +548,7 @@ classes = (
     OperatorPickMorphTarget2,
     OpCreateVertex2PixelUV,
     OpActiveShape2Image,
+    OpAllShape2Image,
     MorphTargetPanel,
 )
 
