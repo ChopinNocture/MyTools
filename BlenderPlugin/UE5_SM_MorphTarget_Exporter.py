@@ -339,6 +339,8 @@ class MorphTargetPanel(bpy.types.Panel):
         row = col.row(align=True)
         row.operator(OpAllShape2Image.bl_idname, text="把所有Shape写入图片")
 
+        row = col.row(align=True)
+        row.operator(OpSelectShape2Image.bl_idname, text="选取Shape写入图片")
 
 # 操作：选择形态目标1
 class OperatorPickMorphTarget1(bpy.types.Operator):
@@ -492,54 +494,111 @@ class OpAllShape2Image(bpy.types.Operator, ExportHelper):
         return {'FINISHED'}
 
     
+#========================================================    
+#
+#
+class ShapeKeySelectorPanel(bpy.types.Panel):
+    """选择形状键的面板"""
+    bl_label = "Select Shape Keys"
+    bl_idname = "OBJECT_PT_shape_key_selector"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "Shape Keys"
 
-# class ZepetoSwingBone(bpy.types.Operator):
-#     bl_idname = "zepeto.add_swing_bone"
-#     bl_label = "Add Zepeto Swing Bone"
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object
 
-#     drag_value: bpy.props.IntProperty(
-#         name="Drag",
-#         description = "越大越刚",
-#         default = 10, 
-#         min = 1, 
-#         max = 99, 
-#         step = 1,
-#     )
-#     angle_value: bpy.props.IntProperty(
-#         name="Angel",
-#         description = "越大范围越小",
-#         default = 10, 
-#         min = 1, 
-#         max = 99, 
-#         step = 1,
-#     )
-#     restore_value: bpy.props.IntProperty(
-#         name = "Restore",
-#         description = "越大恢复越快",
-#         default = 10, 
-#         min = 1, 
-#         max = 99, 
-#         step = 1,
-#     )
+        # 确保当前对象是网格并且有形状键
+        if obj and obj.type == 'MESH' and obj.data.shape_keys:
+            shape_keys = obj.data.shape_keys.key_blocks
+            # 排除 Basis 形状键
+            shape_keys_list = [key.name for key in shape_keys if key != shape_keys[0]]
 
-#     def execute(self, context):
-#         print(" -----", bpy.context.mode)
-#         if bpy.context.mode == 'EDIT' or 'EDIT_ARMATURE':
-#             armature = bpy.context.active_object.data
-#             print(" - armature:", armature)
-#             if armature:
-#                 for bone in armature.edit_bones:
-#                     print(" bone ", bone.name)
-#                     if bone.select:
-#                         bonename = re.sub(REG_PATTERN, '', bone.name)
-#                         seq = (bonename, ZEPETO_SWING_BONE_PREFIX, str(self.drag_value), str(self.angle_value), str(self.restore_value))
-#                         bone.name = "_".join(seq)
+            # 遍历所有形状键，创建复选框
+            for shape_key_name in shape_keys_list:
+                row = layout.row()
+                # 添加复选框
+                row.prop(obj.data.shape_keys, f"['{shape_key_name}']", text=shape_key_name)
 
-#         return {'FINISHED'}
+            # 执行按钮，执行选择的操作
+            layout.operator("object.apply_selected_shape_keys", text="Apply Selected Shape Keys")
+        else:
+            layout.label(text="No Shape Keys found")
+
+
+class ApplySelectedShapeKeysOperator(bpy.types.Operator):
+    """操作符：应用选择的形状键"""
+    bl_idname = "object.apply_selected_shape_keys"
+    bl_label = "Apply Selected Shape Keys"
+
+    def execute(self, context):
+        obj = context.object
+
+        if obj and obj.type == 'MESH' and obj.data.shape_keys:
+            shape_keys = obj.data.shape_keys.key_blocks
+            selected_shape_keys = []
+
+            # 获取所有选中的形状键
+            for key in shape_keys:
+                # 如果形状键被选中（值为True），则将其添加到选中的列表中
+                if getattr(obj.data.shape_keys, f"['{key.name}']", False):
+                    selected_shape_keys.append(key.name)
+
+            if selected_shape_keys:
+                self.report({'INFO'}, f"Applied shape keys: {', '.join(selected_shape_keys)}")
+                # 在这里可以对选中的形状键执行某些操作
+                for shape_key_name in selected_shape_keys:
+                    print(f"Applying shape key: {shape_key_name}")
+                    # 实际操作：启用该形状键
+                    obj.data.shape_keys.key_blocks[shape_key_name].value = 1.0  # 启用形状键
+            else:
+                self.report({'WARNING'}, "No shape keys selected")
+
+            return {'FINISHED'}
+        else:
+            self.report({'ERROR'}, "No Shape Keys available")
+            return {'CANCELLED'}
+        
+
+class OpSelectShape2Image(bpy.types.Operator): #, ExportHelper
+    bl_idname = "object.select_shape_to_image"
+    bl_label = "Write Selected Shapes into Picture"
     
-#     def invoke(self, context, event):
-#         wm = context.window_manager
-#         return wm.invoke_props_dialog(self)
+    # filename_ext = ".exr"
+    # filter_glob: bpy.props.StringProperty(default="*.exr", options={'HIDDEN'})
+
+    def execute(self, context):
+        obj = bpy.context.view_layer.objects.active
+        if not obj:
+            return {'CANCELLED'}
+        
+        shape_keys = obj.data.shape_keys
+
+        if not shape_keys:
+            print("对象没有形态键！")
+            return {'CANCELLED'}
+        if len(shape_keys.key_blocks) <=1: 
+            print("没有形态！！")
+            return {'CANCELLED'}
+        
+        bpy.ops.wm.call_menu(name="OBJECT_PT_shape_key_selector")
+
+        # number_of_verts = len(obj.data.vertices)
+        
+        # base_shape = shape_keys.reference_key
+
+        # # shape_list = [key.name for key in shape_keys if key.name != 'Basis']
+        # shape_list = []
+        # for i in range(1, len(shape_keys.key_blocks)):
+        #     shape_list.append(shape_keys.key_blocks[i])
+        # write_all_shape_into_image(base_shape, shape_list, number_of_verts, self.filepath)
+
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
     
 
 ###------------------------------------------------------
@@ -548,7 +607,10 @@ classes = (
     OperatorPickMorphTarget2,
     OpCreateVertex2PixelUV,
     OpActiveShape2Image,
-    OpAllShape2Image,
+    OpAllShape2Image,    
+    ShapeKeySelectorPanel,
+    ApplySelectedShapeKeysOperator,    
+    OpSelectShape2Image,
     MorphTargetPanel,
 )
 
