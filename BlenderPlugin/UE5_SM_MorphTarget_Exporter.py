@@ -175,6 +175,19 @@ def get_morph_vertex_offsets(base_shape, morph_shape):
     return offset_list
 
 
+def get_morph_vertex_normals(morph_shape):
+    morph_verts = morph_shape.data
+    normal_list = []
+
+    for v in morph_verts:
+        normal = v.normal.copy()
+        normal *= (1.0, -1.0, 1.0)
+        normal = (normal + 1.0) * 0.5
+        normal_list.append(normal)
+
+    return normal_list
+
+
 @ensure_OP_mode(mode='OBJECT')
 def pack_shape_vertex_offset_to_uv(base_shape, morph_shape, obj, is_target1=True):
     offset_list = get_morph_vertex_offsets(base_shape, morph_shape)
@@ -217,7 +230,7 @@ def pack_shape_vertex_offset_to_uv(base_shape, morph_shape, obj, is_target1=True
 UV_LAY_NAME = "UV_ShapeKeys"
 
 # Save the image
-def save_exr_image(pixels, size, file_path):
+def save_shape_image(pixels, size, file_path, is_normal = False):
     image = bpy.data.images.get(IMAGE_NAME)
     if image:
         # 强制清除引用
@@ -225,11 +238,9 @@ def save_exr_image(pixels, size, file_path):
         bpy.data.images.remove(image)
     
     image = bpy.data.images.new(IMAGE_NAME, width=size, height=size, alpha=False, float_buffer=True, is_data=True)
-
     image.pixels = pixels
-
     image.filepath_raw = bpy.path.abspath(f"//{file_path}")
-    image.file_format = 'OPEN_EXR' # 'BMP'
+    image.file_format = 'BMP' if is_normal else 'OPEN_EXR' # 
     image.save()
 
 
@@ -275,7 +286,7 @@ def write_shape_into_image(base_shape, morph_shape, file_path):
     # img = Image.fromarray(pixels, "RGB")
     # img.save(file_path)
     
-    save_exr_image(pixels, size, file_path)
+    save_shape_image(pixels, size, file_path)
 
 
 @check_mesh_selected
@@ -305,7 +316,37 @@ def write_all_shape_into_image(base_shape, shape_list, number_of_verts, file_pat
                 
     print(f"size = {size}   number_of_verts = {number_of_verts}")
     
-    save_exr_image(pixels, size_all, file_path)
+    save_shape_image(pixels, size_all, file_path)
+
+
+@check_mesh_selected
+def write_all_shape_normal_into_image(shape_list, number_of_verts, file_path):
+    num_shape = len(shape_list)
+    row_num = math.ceil(math.sqrt(num_shape))
+    size = int(nearest_pow2_image_res(number_of_verts))
+    size_all = size * row_num
+    if size_all >= 8192:
+        raise RuntimeError("Max image size can not larger than 8192.")
+    
+    pixels = [0.0] * (size_all * size_all * 4)  # 纹理图像的像素（RGBA）
+
+    for iter in range(len(shape_list)):
+        morph_shape = shape_list[iter]
+        list = get_morph_vertex_normals(morph_shape)
+        col_idx = (iter % row_num) * size
+        row_idx = (iter // row_num)
+        for i in range(0, number_of_verts):
+            pixel_index = ((row_idx + (i//size)) * size_all + col_idx + (i%size)) * 4
+            v = list[i]            
+            if pixel_index < len(pixels):
+                pixels[pixel_index] = v.x
+                pixels[pixel_index + 1] = v.y
+                pixels[pixel_index + 2] = v.z
+                pixels[pixel_index + 3] = 0.0
+                
+    print(f"size = {size}   number_of_verts = {number_of_verts}")
+    
+    save_shape_image(pixels, size_all, file_path, True)
 
 #=======================================================
 # 创建面板界面
@@ -340,7 +381,7 @@ class MorphTargetPanel(bpy.types.Panel):
         row.operator(OpAllShape2Image.bl_idname, text="把所有Shape写入图片")
 
         row = col.row(align=True)
-        row.operator(OpSelectShape2Image.bl_idname, text="选取Shape写入图片")
+        row.operator(OpAllShapeNormal2Image.bl_idname, text="Shape法线写入图片")
 
 # 操作：选择形态目标1
 class OperatorPickMorphTarget1(bpy.types.Operator):
@@ -486,87 +527,21 @@ class OpAllShape2Image(bpy.types.Operator, ExportHelper):
         base_shape = shape_keys.reference_key
 
         # shape_list = [key.name for key in shape_keys if key.name != 'Basis']
-        shape_list = []
-        for i in range(1, len(shape_keys.key_blocks)):
-            shape_list.append(shape_keys.key_blocks[i])
+        shape_list = [key for key in shape_keys.key_blocks if key.name != 'Basis' and key.mute == False ]
+        # for i in range(1, len(shape_keys.key_blocks)):
+        #     shape_list.append(shape_keys.key_blocks[i])
+
         write_all_shape_into_image(base_shape, shape_list, number_of_verts, self.filepath)
 
         return {'FINISHED'}
 
+
+class OpAllShapeNormal2Image(bpy.types.Operator, ExportHelper):
+    bl_idname = "object.all_shape_normal_to_image"
+    bl_label = "Write Shape Normals into Picture"
     
-#========================================================    
-#
-#
-class ShapeKeySelectorPanel(bpy.types.Panel):
-    """选择形状键的面板"""
-    bl_label = "Select Shape Keys"
-    bl_idname = "OBJECT_PT_shape_key_selector"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = "Shape Keys"
-
-    def draw(self, context):
-        layout = self.layout
-        obj = context.object
-
-        # 确保当前对象是网格并且有形状键
-        if obj and obj.type == 'MESH' and obj.data.shape_keys:
-            shape_keys = obj.data.shape_keys.key_blocks
-            # 排除 Basis 形状键
-            shape_keys_list = [key.name for key in shape_keys if key != shape_keys[0]]
-
-            # 遍历所有形状键，创建复选框
-            for shape_key_name in shape_keys_list:
-                row = layout.row()
-                # 添加复选框
-                row.prop(obj.data.shape_keys, f"['{shape_key_name}']", text=shape_key_name)
-
-            # 执行按钮，执行选择的操作
-            layout.operator("object.apply_selected_shape_keys", text="Apply Selected Shape Keys")
-        else:
-            layout.label(text="No Shape Keys found")
-
-
-class ApplySelectedShapeKeysOperator(bpy.types.Operator):
-    """操作符：应用选择的形状键"""
-    bl_idname = "object.apply_selected_shape_keys"
-    bl_label = "Apply Selected Shape Keys"
-
-    def execute(self, context):
-        obj = context.object
-
-        if obj and obj.type == 'MESH' and obj.data.shape_keys:
-            shape_keys = obj.data.shape_keys.key_blocks
-            selected_shape_keys = []
-
-            # 获取所有选中的形状键
-            for key in shape_keys:
-                # 如果形状键被选中（值为True），则将其添加到选中的列表中
-                if getattr(obj.data.shape_keys, f"['{key.name}']", False):
-                    selected_shape_keys.append(key.name)
-
-            if selected_shape_keys:
-                self.report({'INFO'}, f"Applied shape keys: {', '.join(selected_shape_keys)}")
-                # 在这里可以对选中的形状键执行某些操作
-                for shape_key_name in selected_shape_keys:
-                    print(f"Applying shape key: {shape_key_name}")
-                    # 实际操作：启用该形状键
-                    obj.data.shape_keys.key_blocks[shape_key_name].value = 1.0  # 启用形状键
-            else:
-                self.report({'WARNING'}, "No shape keys selected")
-
-            return {'FINISHED'}
-        else:
-            self.report({'ERROR'}, "No Shape Keys available")
-            return {'CANCELLED'}
-        
-
-class OpSelectShape2Image(bpy.types.Operator): #, ExportHelper
-    bl_idname = "object.select_shape_to_image"
-    bl_label = "Write Selected Shapes into Picture"
-    
-    # filename_ext = ".exr"
-    # filter_glob: bpy.props.StringProperty(default="*.exr", options={'HIDDEN'})
+    filename_ext = ".bmp"
+    filter_glob: bpy.props.StringProperty(default="*.bmp", options={'HIDDEN'})
 
     def execute(self, context):
         obj = bpy.context.view_layer.objects.active
@@ -582,23 +557,12 @@ class OpSelectShape2Image(bpy.types.Operator): #, ExportHelper
             print("没有形态！！")
             return {'CANCELLED'}
         
-        bpy.ops.wm.call_menu(name="OBJECT_PT_shape_key_selector")
+        number_of_verts = len(obj.data.vertices)
+        shape_list = [key for key in shape_keys.key_blocks if key.name != 'Basis' and key.mute == False ]
 
-        # number_of_verts = len(obj.data.vertices)
-        
-        # base_shape = shape_keys.reference_key
-
-        # # shape_list = [key.name for key in shape_keys if key.name != 'Basis']
-        # shape_list = []
-        # for i in range(1, len(shape_keys.key_blocks)):
-        #     shape_list.append(shape_keys.key_blocks[i])
-        # write_all_shape_into_image(base_shape, shape_list, number_of_verts, self.filepath)
+        write_all_shape_normal_into_image(shape_list, number_of_verts, self.filepath)
 
         return {'FINISHED'}
-    
-    def invoke(self, context, event):
-        wm = context.window_manager
-        return wm.invoke_props_dialog(self)
     
 
 ###------------------------------------------------------
@@ -607,10 +571,8 @@ classes = (
     OperatorPickMorphTarget2,
     OpCreateVertex2PixelUV,
     OpActiveShape2Image,
-    OpAllShape2Image,    
-    ShapeKeySelectorPanel,
-    ApplySelectedShapeKeysOperator,    
-    OpSelectShape2Image,
+    OpAllShape2Image,
+    OpAllShapeNormal2Image, 
     MorphTargetPanel,
 )
 
