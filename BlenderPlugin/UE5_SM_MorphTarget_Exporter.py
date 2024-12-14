@@ -175,15 +175,30 @@ def get_morph_vertex_offsets(base_shape, morph_shape):
     return offset_list
 
 
-def get_morph_vertex_normals(morph_shape):
+def get_morph_vertex_normals(obj, morph_shape):
+    mesh = obj.data.copy()
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+
     morph_verts = morph_shape.data
     normal_list = []
 
-    for v in morph_verts:
+    # 替换网格的顶点位置为当前形状键的顶点位置
+    for vert, sk_data in zip(bm.verts, morph_verts):
+        vert.co = sk_data.co
+    
+    # 重新计算顶点法线
+    bm.normal_update()
+
+    for v in bm.verts:
         normal = v.normal.copy()
         normal *= (1.0, -1.0, 1.0)
         normal = (normal + 1.0) * 0.5
         normal_list.append(normal)
+    
+    # 清理临时数据
+    bm.free()
+    bpy.data.meshes.remove(mesh)
 
     return normal_list
 
@@ -320,7 +335,7 @@ def write_all_shape_into_image(base_shape, shape_list, number_of_verts, file_pat
 
 
 @check_mesh_selected
-def write_all_shape_normal_into_image(shape_list, number_of_verts, file_path):
+def write_all_shape_normal_into_image(obj, shape_list, number_of_verts, file_path):
     num_shape = len(shape_list)
     row_num = math.ceil(math.sqrt(num_shape))
     size = int(nearest_pow2_image_res(number_of_verts))
@@ -332,7 +347,7 @@ def write_all_shape_normal_into_image(shape_list, number_of_verts, file_path):
 
     for iter in range(len(shape_list)):
         morph_shape = shape_list[iter]
-        list = get_morph_vertex_normals(morph_shape)
+        list = get_morph_vertex_normals(obj, morph_shape)
         col_idx = (iter % row_num) * size
         row_idx = (iter // row_num)
         for i in range(0, number_of_verts):
@@ -560,7 +575,7 @@ class OpAllShapeNormal2Image(bpy.types.Operator, ExportHelper):
         number_of_verts = len(obj.data.vertices)
         shape_list = [key for key in shape_keys.key_blocks if key.name != 'Basis' and key.mute == False ]
 
-        write_all_shape_normal_into_image(shape_list, number_of_verts, self.filepath)
+        write_all_shape_normal_into_image(obj, shape_list, number_of_verts, self.filepath)
 
         return {'FINISHED'}
     
