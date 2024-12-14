@@ -192,8 +192,8 @@ def get_morph_vertex_normals(obj, morph_shape):
 
     for v in bm.verts:
         normal = v.normal.copy()
-        normal *= (1.0, -1.0, 1.0)
-        normal = (normal + 1.0) * 0.5
+        normal *= mathutils.Vector((1.0, -1.0, 1.0)) 
+        normal = (normal + mathutils.Vector((1.0, 1.0, 1.0))) * mathutils.Vector((0.5, 0.5, 0.5))
         normal_list.append(normal)
     
     # 清理临时数据
