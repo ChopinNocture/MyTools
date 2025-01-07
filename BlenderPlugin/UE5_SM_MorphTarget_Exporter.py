@@ -319,7 +319,7 @@ def write_all_shape_into_image(base_shape, shape_list, number_of_verts, file_pat
         morph_shape = shape_list[iter]
         offset_list = get_morph_vertex_offsets(base_shape, morph_shape)
         col_idx = (iter % row_num) * size
-        row_idx = (iter // row_num)
+        row_idx = (row_num - 1 - (iter // row_num)) * size
         for i in range(0, number_of_verts):
             pixel_index = ((row_idx + (i//size)) * size_all + col_idx + (i%size)) * 4
             offset = offset_list[i]            
@@ -329,7 +329,7 @@ def write_all_shape_into_image(base_shape, shape_list, number_of_verts, file_pat
                 pixels[pixel_index + 2] = offset.z
                 pixels[pixel_index + 3] = 1.0
                 
-    print(f"size = {size}   number_of_verts = {number_of_verts}")
+    print(f"size = {size}   number_of_verts = {number_of_verts}    row = {row_num}")
     
     save_shape_image(pixels, size_all, file_path)
 
@@ -349,7 +349,7 @@ def write_all_shape_normal_into_image(obj, shape_list, number_of_verts, file_pat
         morph_shape = shape_list[iter]
         list = get_morph_vertex_normals(obj, morph_shape)
         col_idx = (iter % row_num) * size
-        row_idx = (iter // row_num)
+        row_idx = (row_num - 1 - (iter // row_num)) * size
         for i in range(0, number_of_verts):
             pixel_index = ((row_idx + (i//size)) * size_all + col_idx + (i%size)) * 4
             v = list[i]            
@@ -359,7 +359,7 @@ def write_all_shape_normal_into_image(obj, shape_list, number_of_verts, file_pat
                 pixels[pixel_index + 2] = v.z
                 pixels[pixel_index + 3] = 0.0
                 
-    print(f"size = {size}   number_of_verts = {number_of_verts}")
+    print(f"size = {size}   number_of_verts = {number_of_verts}    row = {row_num}")
     
     save_shape_image(pixels, size_all, file_path, True)
 
